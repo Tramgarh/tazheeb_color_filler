@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raster & SVG Art Editor</title>
+    <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady()"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.263.1/font/lucide.css">
+    <link rel="stylesheet" href="../css/raster_style.css" />
+    <link rel="stylesheet" href="../css/svg_style.css" />
+    <link rel="stylesheet" href="../css/layer_style.css" />
+    <style>
+        /* Quick inline styles for lucide icons */
+        @font-face {
+            font-family: 'Lucide';
+            src: url('https://cdn.jsdelivr.net/npm/lucide-static@0.263.1/font/Lucide.ttf') format('truetype');
+        }
+        .lucide {
+            font-family: 'Lucide' !important;
+            font-style: normal;
+            font-weight: normal;
+            font-variant: normal;
+            text-transform: none;
+            line-height: 1;
+            -webkit-font-smoothing: antialiased;
+        }
+    </style>
+</head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Raster & SVG Art Editor</h1>
+        <p>Color line art • Edit vector artwork • All in browser</p>
+      </header>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="raster">
+          Raster Coloring
+        </button>
+        <button class="tab-btn" data-tab="svg">SVG Editor</button>
+      </div>
+
+      <!-- Raster Tab -->
+      <div id="raster-tab" class="tab-content active">
+        <div class="controls">
+          <h3>Raster Controls</h3>
+          <div class="control-grid">
+            <div>
+              <label>Fill Color</label><br />
+              <input type="color" id="fillColorRaster" value="#4361ee" />
+            </div>
+            <div>
+              <label>Tolerance</label><br />
+              <input
+                type="range"
+                id="toleranceRaster"
+                min="0"
+                max="100"
+                value="30"
+              />
+              <span id="tolValueRaster">30</span>
+            </div>
+            <div>
+              <label>Connectivity</label><br />
+              <select id="connectivityRaster">
+                <option value="4">4 (orthogonal)</option>
+                <option value="8">8 (with diagonals)</option>
+              </select>
+            </div>
+            <div
+              style="
+                grid-column: span 4;
+                display: flex;
+                gap: 16px;
+                flex-wrap: wrap;
+              "
+            >
+              <button class="primary" id="fillSimilarRaster">
+                <i class="fas fa-fill-drip"></i> Fill Similar
+              </button>
+              <button class="primary" id="undoRaster">
+                <i class="fas fa-undo"></i> Undo
+              </button>
+              <button class="primary" id="redoRaster">
+                <i class="fas fa-redo"></i> Redo
+              </button>
+              <button class="danger" id="resetRaster">
+                <i class="fas fa-trash"></i> Reset
+              </button>
+              <button class="success" id="saveRaster">
+                <i class="fas fa-download"></i> Save PNG
+              </button>
+            </div>
+          </div>
+
+          <!-- Zoom for Raster -->
+          <div class="zoom-control">
+            <button class="zoom-btn" id="zoomOutRaster">
+              <i class="fas fa-search-minus"></i>
+            </button>
+            <span class="zoom-value" id="zoomValueRaster">100%</span>
+            <button class="zoom-btn" id="zoomInRaster">
+              <i class="fas fa-search-plus"></i>
+            </button>
+            <input
+              type="range"
+              id="zoomSliderRaster"
+              min="50"
+              max="300"
+              value="100"
+              step="10"
+              style="flex: 1"
+            />
+          </div>
+        </div>
+
+        <input
+          type="file"
+          id="rasterInput"
+          accept="image/png,image/jpeg"
+          style="display: block; margin: 20px auto"
+        />
+
+        <div class="canvas-layout">
+          <div class="canvas-panel main-edit">
+            <div class="canvas-header">Editable Canvas (click to fill)</div>
+            <div class="canvas-body">
+              <div class="canvas-body-inner" id="rasterMainWrapper">
+                <canvas id="mainCanvas"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="canvas-panel original-panel">
+            <div class="canvas-header">Original Reference</div>
+            <div class="canvas-body" style="min-height:200px;">
+              <img id="originalPreview" alt="Original image" style="max-width:100%; max-height: fit-content; display:block; margin:auto; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.08);" />
+              <div style="text-align:center; margin-top:12px;">
+                <button id="restoreOriginal" class="secondary">Restore Original</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SVG Tab -->
+      <div id="svg-tab" class="tab-content">
+        
+      <div id="editor">
+
+      <div id="canvasWrapper">
+        <div id="canvasHeader">
+          <h2><i class="fas fa-paint-brush"></i> SVG Artwork Editor</h2>
+          <div id="canvasControls">
+            <button class="canvas-btn" id="openFileBtn" title="Open SVG">
+              <i class="fas fa-folder-open"></i>
+            </button>
+            <button class="canvas-btn" id="centerView" title="Center View">
+              <i class="fas fa-crosshairs"></i>
+            </button>
+            <button class="canvas-btn" id="resetView" title="Reset View">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+            <button
+              class="canvas-btn"
+              id="fullscreen"
+              title="Toggle Fullscreen"
+            >
+              <i class="fas fa-expand"></i>
+            </button>
+          </div>
+        </div>
+        <div id="svgContainer">
+          <!-- SVG will be loaded here -->
+          <div class="loading" id="loadingIndicator"></div>
+        </div>
+      </div>
+
+      <div id="panel">
+        <!-- Selection Preview Section -->
+        <div class="panel-section">
+          <h3><i class="fas fa-eye"></i> Selected Element</h3>
+          <div id="selectionPreview" class="empty">
+            <div id="previewContent">
+              <i class="fas fa-mouse-pointer"></i>
+              <p>Click on any element to select it</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3><i class="fas fa-fill-drip"></i> Fill Color</h3>
+          <div class="color-grid" id="colorPresets">
+            <!-- Color presets will be generated here -->
+          </div>
+          <div class="color-picker-container">
+            <input type="color" id="colorPicker" value="#4361ee" />
+            <input
+              type="text"
+              id="customColorValue"
+              value="#4361ee"
+              maxlength="7"
+            />
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3><i class="fas fa-search"></i> Zoom Controls</h3>
+          <div class="zoom-controls">
+            <button class="zoom-btn" id="zoomOut">
+              <i class="fas fa-search-minus"></i>
+            </button>
+            <div class="zoom-value" id="zoomValue">100%</div>
+            <button class="zoom-btn" id="zoomIn">
+              <i class="fas fa-search-plus"></i>
+            </button>
+          </div>
+          <input
+            type="range"
+            id="zoomSlider"
+            min="10"
+            max="300"
+            step="10"
+            value="100"
+          />
+        </div>
+
+        <div class="panel-section">
+          <h3><i class="fas fa-tools"></i> Actions</h3>
+          <div class="actions-grid">
+            <button class="action-btn" id="fillSimilarColorsBtn">
+              <i class="fas fa-undo"></i>
+              Fill Similar Colors
+            </button>
+            <button class="action-btn" id="undoBtn">
+              <i class="fas fa-undo"></i>
+              Undo
+            </button>
+            <button class="action-btn" id="redoBtn">
+              <i class="fas fa-redo"></i>
+              Redo
+            </button>
+            <button class="action-btn reset" id="resetColors">
+              <i class="fas fa-trash-alt"></i>
+              Reset All
+            </button>
+            <button class="action-btn save" id="saveArtwork">
+              <i class="fas fa-download"></i>
+              Save SVG
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+      </div>
+        <input type="file" id="fileInput" accept=".svg,image/svg+xml" style="display:none" />
+    <input type="file" id="rasterInput" accept="image/png,image/jpeg" style="display: none" />
+
+    <script src="../scripts/raster_logic.js"></script>
+    <script src="../scripts/svg_logic.js"></script>
+  </body>
+</html>
