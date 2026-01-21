@@ -368,8 +368,10 @@ function updateSelectionPreview(element) {
 
   previewSvg.appendChild(clone);
 
-  const fillColor = element.getAttribute("fill") || "none";
-  const strokeColor = element.getAttribute("stroke") || "none";
+  const fillColor = element.getAttribute("fill") || element.style.fill || window.getComputedStyle(element).fill || 'none';
+  const normalizedFill = cssColorToHex(fillColor, element) || fillColor;
+  const strokeFill = element.getAttribute("stroke") || element.style.stroke || window.getComputedStyle(element).stroke || 'none';
+  const normalizedStroke = cssColorToHex(strokeFill, element) || strokeFill;
 
   selectionPreview.innerHTML = `
     <div id="previewHeader">
@@ -390,13 +392,13 @@ function updateSelectionPreview(element) {
       <div class="preview-info">
         <div class="preview-info-row">
           <span class="preview-label">Fill:</span>
-          <span class="preview-value" style="color:${fillColor}">
-            ${fillColor}
+          <span class="preview-value" style="color:${normalizedFill}">
+            ${normalizedFill}
           </span>
         </div>
         <div class="preview-info-row">
           <span class="preview-label">Stroke:</span>
-          <span class="preview-value">${strokeColor}</span>
+          <span class="preview-value" style="color:${normalizedStroke}">${normalizedStroke}</span>
         </div>
       </div>
     </div>
