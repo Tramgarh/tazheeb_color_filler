@@ -24,6 +24,9 @@ let lastClickedPixelColor = null;
 const rasterInput = document.getElementById('rasterInput');
 const originalPreview = document.getElementById('originalPreview');
 const restoreOriginalBtn = document.getElementById('restoreOriginal');
+const previewModal = document.getElementById('previewModal');
+const previewModalImage = document.getElementById('previewModalImage');
+const closePreviewModal = document.getElementById('closePreviewModal');
 
 let rasterZoom = 1;
 let rasterPanX = 0;
@@ -47,7 +50,10 @@ rasterInput.addEventListener('change', e => {
 
       originalImage = img;
       // show original preview
-      if (originalPreview) originalPreview.src = ev.target.result;
+      if (originalPreview) {
+        originalPreview.src = ev.target.result;
+        previewModalImage.src = ev.target.result;
+      }
 
       historyRaster = [ctx.getImageData(0,0,mainCanvas.width,mainCanvas.height)];
       historyIndexRaster = 0;
@@ -61,6 +67,37 @@ rasterInput.addEventListener('change', e => {
   reader.readAsDataURL(file);
 });
 
+// Preview thumbnail modal functionality
+if (originalPreview) {
+  originalPreview.addEventListener('click', (e) => {
+    if (previewModalImage.src) {
+      previewModal.style.display = 'flex';
+    }
+  });
+}
+
+if (closePreviewModal) {
+  closePreviewModal.addEventListener('click', () => {
+    previewModal.style.display = 'none';
+  });
+}
+
+// Close modal when clicking outside the content
+if (previewModal) {
+  previewModal.addEventListener('click', (e) => {
+    if (e.target === previewModal) {
+      previewModal.style.display = 'none';
+    }
+  });
+
+  // Close modal with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && previewModal.style.display !== 'none') {
+      previewModal.style.display = 'none';
+    }
+  });
+}
+
 // Click to fill + remember color for similar fill
 mainCanvas.addEventListener('click', e => {
   if (!originalImage) return;
@@ -68,16 +105,17 @@ mainCanvas.addEventListener('click', e => {
   // Don't fill if shift key is held (used for panning)
   if (e.shiftKey) return;
 
-  const rect = mainCanvas.getBoundingClientRect();
   const wrapperMain = document.getElementById('rasterMainWrapper');
+  const wrapperRect = wrapperMain.getBoundingClientRect();
   
-  // Account for zoom and pan when calculating pixel position
-  let x = (e.clientX - rect.left) / rasterZoom;
-  let y = (e.clientY - rect.top) / rasterZoom;
+  // Get position relative to the transformed wrapper
+  // The wrapper's rect already accounts for pan via the visual transform
+  let screenX = e.clientX - wrapperRect.left;
+  let screenY = e.clientY - wrapperRect.top;
   
-  // Account for pan offset
-  x = (e.clientX - rect.left - rasterPanX) / rasterZoom;
-  y = (e.clientY - rect.top - rasterPanY) / rasterZoom;
+  // Only undo the zoom, pan is already accounted for in wrapperRect
+  let x = screenX / rasterZoom;
+  let y = screenY / rasterZoom;
 
   x = Math.floor(x);
   y = Math.floor(y);
