@@ -138,6 +138,83 @@
         gap: 24px;
       }
 
+      /* New layout for raster editor with full-width canvas and side preview */
+      .canvas-layout-raster {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        gap: 24px;
+        height: calc(100vh - 400px);
+        min-height: 600px;
+      }
+
+      .raster-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .original-panel-small {
+        background: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      .preview-thumbnail-container {
+        flex: 1;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fafafa;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+      }
+
+      .preview-thumbnail {
+        max-width: 100%;
+        max-height: 100%;
+        width: 100%;
+        height: auto;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease;
+      }
+
+      .preview-thumbnail-container:hover .preview-thumbnail {
+        transform: scale(1.05);
+      }
+
+      .preview-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(67, 97, 238, 0.8);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        gap: 8px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        font-size: 0.9rem;
+      }
+
+      .preview-thumbnail-container:hover .preview-overlay {
+        opacity: 1;
+      }
+
+      .preview-overlay i {
+        font-size: 1.5rem;
+      }
+
       .canvas-panel {
         background: white;
         border-radius: var(--radius);
@@ -244,4 +321,99 @@
         width: 100%;
         height: auto;
         border-radius: 8px;
+      }
+
+      /* Modal Preview Styles */
+      .modal-preview {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+      }
+
+      .modal-preview-content {
+        background: white;
+        border-radius: var(--radius);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+        max-width: 90vw;
+        max-height: 90vh;
+        overflow: hidden;
+      }
+
+      .modal-preview-header {
+        background: var(--primary);
+        color: white;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+      }
+
+      .modal-preview-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+      }
+
+      .modal-close-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+        padding: 0;
+      }
+
+      .modal-close-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      .modal-preview-body {
+        flex: 1;
+        overflow: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: #f8f9fa;
+      }
+
+      .modal-preview-body img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      }
+
+      @media (max-width: 1100px) {
+        .canvas-layout-raster {
+          grid-template-columns: 1fr;
+          height: auto;
+        }
+
+        .raster-sidebar {
+          grid-column: 1 / -1;
+          flex-direction: row;
+          height: auto;
+        }
+
+        .original-panel-small {
+          height: auto;
+          max-height: 250px;
+        }
       }
