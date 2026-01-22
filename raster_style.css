@@ -164,12 +164,19 @@
         justify-content: center;
         background: #fafafa;
         overflow: auto;
+        position: relative;
+        user-select: none;
       }
 
       .canvas-body-inner {
         position: relative;
         transform-origin: top left;
-        transition: transform 0.2s ease;
+        transition: transform 0.1s ease-out;
+        cursor: pointer
+      }
+
+      .canvas-body-inner:active {
+        cursor: grabbing;
       }
 
       canvas,
@@ -177,6 +184,7 @@
         max-width: 100%;
         border-radius: 8px;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        display: block;
       }
 
       button {
