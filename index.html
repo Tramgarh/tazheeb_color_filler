@@ -126,11 +126,11 @@
           style="display: block; margin: 20px auto"
         />
 
-        <div class="canvas-layout">
+        <div class="canvas-layout-raster">
           <div class="canvas-panel main-edit">
             <div class="canvas-header">
               Editable Canvas (click to fill)
-              <span style="font-size: 0.85rem; opacity: 0.9;">Shift+Drag to pan | Ctrl+Wheel to zoom</span>
+              <span style="font-size: 0.85rem; opacity: 0.9;">Shift+Drag to pan | Wheel to zoom</span>
             </div>
             <div class="canvas-body">
               <div class="canvas-body-inner" id="rasterMainWrapper">
@@ -139,13 +139,35 @@
             </div>
           </div>
 
-          <div class="canvas-panel original-panel">
-            <div class="canvas-header">Original Reference</div>
-            <div class="canvas-body" style="min-height:200px;">
-              <img id="originalPreview" alt="Original image" style="max-width:100%; max-height: fit-content; display:block; margin:auto; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.08);" />
-              <div style="text-align:center; margin-top:12px;">
-                <button id="restoreOriginal" class="secondary">Restore Original</button>
+          <div class="raster-sidebar">
+            <div class="original-panel-small">
+              <div class="canvas-header" style="padding: 12px 16px; font-size: 0.95rem;">
+                <i class="fas fa-image"></i> Original Reference
               </div>
+              <div class="preview-thumbnail-container">
+                <img id="originalPreview" alt="Original image" class="preview-thumbnail" />
+                <div class="preview-overlay">
+                  <i class="fas fa-search-plus"></i> Click to enlarge
+                </div>
+              </div>
+              <button id="restoreOriginal" class="secondary" style="width: 100%; margin-top: 12px;">
+                <i class="fas fa-undo"></i> Restore
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview Modal -->
+        <div id="previewModal" class="modal-preview" style="display: none;">
+          <div class="modal-preview-content">
+            <div class="modal-preview-header">
+              <h3>Original Image Preview</h3>
+              <button class="modal-close-btn" id="closePreviewModal">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="modal-preview-body">
+              <img id="previewModalImage" alt="Original image" />
             </div>
           </div>
         </div>
