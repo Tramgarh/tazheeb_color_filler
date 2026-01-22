@@ -10,9 +10,9 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.263.1/font/lucide.css">
-    <link rel="stylesheet" href="raster_style.css" />
-    <link rel="stylesheet" href="svg_style.css" />
-    <link rel="stylesheet" href="layer_style.css" />
+    <link rel="stylesheet" href="../css/raster_style.css" />
+    <link rel="stylesheet" href="../css/svg_style.css" />
+    <link rel="stylesheet" href="../css/layer_style.css" />
     <style>
         /* Quick inline styles for lucide icons */
         @font-face {
@@ -128,7 +128,10 @@
 
         <div class="canvas-layout">
           <div class="canvas-panel main-edit">
-            <div class="canvas-header">Editable Canvas (click to fill)</div>
+            <div class="canvas-header">
+              Editable Canvas (click to fill)
+              <span style="font-size: 0.85rem; opacity: 0.9;">Shift+Drag to pan | Ctrl+Wheel to zoom</span>
+            </div>
             <div class="canvas-body">
               <div class="canvas-body-inner" id="rasterMainWrapper">
                 <canvas id="mainCanvas"></canvas>
@@ -261,7 +264,7 @@
         <input type="file" id="fileInput" accept=".svg,image/svg+xml" style="display:none" />
     <input type="file" id="rasterInput" accept="image/png,image/jpeg" style="display: none" />
 
-    <script src="raster_logic.js"></script>
-    <script src="svg_logic.js"></script>
+    <script src="../scripts/raster_logic.js"></script>
+    <script src="../scripts/svg_logic.js"></script>
   </body>
 </html>
