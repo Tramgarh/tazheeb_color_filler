@@ -66,6 +66,7 @@
         background: repeating-conic-gradient(#f8f9fa 0% 25%, #ffffff 0% 50%) 50% /
           20px 20px;
         position: relative;
+        user-select: none;
       }
 
       /* drag and drop visual */
@@ -80,7 +81,12 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
         border-radius: 4px;
         background-color: white;
-        transition: transform 0.3s ease;
+        transition: transform 0.1s ease-out;
+        cursor: pointer;
+      }
+
+      #svgContainer svg:active {
+        cursor: grabbing;
       }
 
       /* Panel area */
