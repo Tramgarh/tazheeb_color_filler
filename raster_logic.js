@@ -26,6 +26,11 @@ const originalPreview = document.getElementById('originalPreview');
 const restoreOriginalBtn = document.getElementById('restoreOriginal');
 
 let rasterZoom = 1;
+let rasterPanX = 0;
+let rasterPanY = 0;
+let isRasterPanning = false;
+let rasterPanStartX = 0;
+let rasterPanStartY = 0;
 
 rasterInput.addEventListener('change', e => {
   const file = e.target.files[0];
@@ -47,6 +52,8 @@ rasterInput.addEventListener('change', e => {
       historyRaster = [ctx.getImageData(0,0,mainCanvas.width,mainCanvas.height)];
       historyIndexRaster = 0;
       rasterZoom = 1;
+      rasterPanX = 0;
+      rasterPanY = 0;
       updateRasterZoom();
     };
     img.src = ev.target.result;
@@ -58,9 +65,24 @@ rasterInput.addEventListener('change', e => {
 mainCanvas.addEventListener('click', e => {
   if (!originalImage) return;
 
+  // Don't fill if shift key is held (used for panning)
+  if (e.shiftKey) return;
+
   const rect = mainCanvas.getBoundingClientRect();
-  const x = Math.floor((e.clientX - rect.left) * (mainCanvas.width / rect.width));
-  const y = Math.floor((e.clientY - rect.top) * (mainCanvas.height / rect.height));
+  const wrapperMain = document.getElementById('rasterMainWrapper');
+  
+  // Account for zoom and pan when calculating pixel position
+  let x = (e.clientX - rect.left) / rasterZoom;
+  let y = (e.clientY - rect.top) / rasterZoom;
+  
+  // Account for pan offset
+  x = (e.clientX - rect.left - rasterPanX) / rasterZoom;
+  y = (e.clientY - rect.top - rasterPanY) / rasterZoom;
+
+  x = Math.floor(x);
+  y = Math.floor(y);
+
+  if (x < 0 || y < 0 || x >= mainCanvas.width || y >= mainCanvas.height) return;
 
   // Remember clicked color (used by Fill Similar)
   const pixelData = ctx.getImageData(x, y, 1, 1).data;
@@ -178,6 +200,9 @@ document.getElementById('resetRaster').onclick = () => {
     historyRaster = [ctx.getImageData(0,0,mainCanvas.width,mainCanvas.height)];
     historyIndexRaster = 0;
     rasterZoom = 1;
+    rasterPanX = 0;
+    rasterPanY = 0;
+    document.getElementById('zoomSliderRaster').value = 100;
     updateRasterZoom();
   }
 };
@@ -190,6 +215,9 @@ if (restoreOriginalBtn) {
       historyRaster = [ctx.getImageData(0,0,mainCanvas.width,mainCanvas.height)];
       historyIndexRaster = 0;
       rasterZoom = 1;
+      rasterPanX = 0;
+      rasterPanY = 0;
+      document.getElementById('zoomSliderRaster').value = 100;
       updateRasterZoom();
     }
   };
@@ -202,29 +230,102 @@ document.getElementById('saveRaster').onclick = () => {
   link.click();
 };
 
-// Zoom for Raster
+// Enhanced Zoom and Pan for Raster
 function updateRasterZoom() {
   const wrapperMain = document.getElementById('rasterMainWrapper');
-  wrapperMain.style.transform = `scale(${rasterZoom})`;
+  wrapperMain.style.transform = `translate(${rasterPanX}px, ${rasterPanY}px) scale(${rasterZoom})`;
+  wrapperMain.style.transformOrigin = 'top left';
+  wrapperMain.style.transition = 'transform 0.1s ease-out';
   document.getElementById('zoomValueRaster').textContent = `${Math.round(rasterZoom * 100)}%`;
 }
 
 document.getElementById('zoomSliderRaster').oninput = e => {
-  rasterZoom = e.target.value / 100;
+  rasterZoom = Math.max(0.25, Math.min(5, e.target.value / 100));
   updateRasterZoom();
 };
 
 document.getElementById('zoomInRaster').onclick = () => {
-  rasterZoom = Math.min(3, rasterZoom + 0.1);
+  rasterZoom = Math.min(5, rasterZoom + 0.15);
   document.getElementById('zoomSliderRaster').value = rasterZoom * 100;
   updateRasterZoom();
 };
 
 document.getElementById('zoomOutRaster').onclick = () => {
-  rasterZoom = Math.max(0.5, rasterZoom - 0.1);
+  rasterZoom = Math.max(0.25, rasterZoom - 0.15);
   document.getElementById('zoomSliderRaster').value = rasterZoom * 100;
   updateRasterZoom();
 };
+
+// Mouse wheel zoom for raster
+const rasterContainer = document.querySelector('.canvas-body-inner')?.parentElement || mainCanvas.parentElement;
+if (rasterContainer) {
+  rasterContainer.addEventListener('wheel', (e) => {
+    if (!mainCanvas || mainCanvas.width === 0) return;
+    e.preventDefault();
+    
+    const zoomSpeed = 0.1;
+    const delta = e.deltaY > 0 ? -1 : 1;
+    const newZoom = Math.max(0.25, Math.min(5, rasterZoom + delta * zoomSpeed));
+    
+    if (newZoom !== rasterZoom) {
+      rasterZoom = newZoom;
+      document.getElementById('zoomSliderRaster').value = rasterZoom * 100;
+      updateRasterZoom();
+    }
+  }, { passive: false });
+}
+
+// Pan functionality for raster (middle mouse button or space+drag)
+if (rasterContainer) {
+  rasterContainer.addEventListener('mousedown', (e) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle mouse or Shift+Left click
+      e.preventDefault();
+      isRasterPanning = true;
+      rasterPanStartX = e.clientX - rasterPanX;
+      rasterPanStartY = e.clientY - rasterPanY;
+      rasterContainer.style.cursor = 'grabbing';
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isRasterPanning && mainCanvas && mainCanvas.width > 0) {
+      rasterPanX = e.clientX - rasterPanStartX;
+      rasterPanY = e.clientY - rasterPanStartY;
+      updateRasterZoom();
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isRasterPanning) {
+      isRasterPanning = false;
+      if (rasterContainer) rasterContainer.style.cursor = 'default';
+    }
+  });
+}
+
+// Keyboard shortcuts for raster zoom
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  
+  if (e.key === '+' || e.key === '=') {
+    e.preventDefault();
+    rasterZoom = Math.min(5, rasterZoom + 0.15);
+    document.getElementById('zoomSliderRaster').value = rasterZoom * 100;
+    updateRasterZoom();
+  } else if (e.key === '-') {
+    e.preventDefault();
+    rasterZoom = Math.max(0.25, rasterZoom - 0.15);
+    document.getElementById('zoomSliderRaster').value = rasterZoom * 100;
+    updateRasterZoom();
+  } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    rasterZoom = 1;
+    rasterPanX = 0;
+    rasterPanY = 0;
+    document.getElementById('zoomSliderRaster').value = 100;
+    updateRasterZoom();
+  }
+});
 
 // Tolerance display
 document.getElementById('toleranceRaster').oninput = e => {
