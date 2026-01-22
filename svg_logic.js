@@ -25,6 +25,11 @@ let svgElement = null;
 let selectedElement = null;
 let hoveredElement = null;
 let currentZoom = 1;
+let svgPanX = 0;
+let svgPanY = 0;
+let isSvgPanning = false;
+let svgPanStartX = 0;
+let svgPanStartY = 0;
 let history = [];
 let historyIndex = -1;
 let originalColors = new Map();
@@ -269,6 +274,9 @@ function handleElementHover(e) {
     hoverTimeout = null;
   }
 
+  // Don't fill if shift key is held (used for panning)
+  if (e.shiftKey) return;
+
   const element = e.target;
 
   // If this element is already selected or hovered, do nothing
@@ -470,25 +478,90 @@ function initEventListeners() {
   });
 
   zoomInBtn.addEventListener("click", () => {
-    const newZoom = Math.min(300, currentZoom * 100 + 10);
+    const newZoom = Math.min(500, currentZoom * 100 + 15);
     zoomSlider.value = newZoom;
     currentZoom = newZoom / 100;
     updateZoom();
   });
 
   zoomOutBtn.addEventListener("click", () => {
-    const newZoom = Math.max(10, currentZoom * 100 - 10);
+    const newZoom = Math.max(10, currentZoom * 100 - 15);
     zoomSlider.value = newZoom;
     currentZoom = newZoom / 100;
     updateZoom();
   });
 
-  // updateZoom is handled by the global function; keep handlers here only
-
   // View controls
   centerViewBtn.addEventListener("click", centerSvg);
   resetViewBtn.addEventListener("click", resetView);
   fullscreenBtn.addEventListener("click", toggleFullscreen);
+
+  // Mouse wheel zoom for SVG
+  svgContainer.addEventListener('wheel', (e) => {
+    if (!svgElement || svgElement.querySelectorAll('*').length === 0) return;
+    e.preventDefault();
+    
+    const zoomSpeed = 0.15;
+    const delta = e.deltaY > 0 ? -1 : 1;
+    const newZoom = Math.max(0.1, Math.min(5, currentZoom + delta * zoomSpeed));
+    
+    if (newZoom !== currentZoom) {
+      currentZoom = newZoom;
+      zoomSlider.value = Math.round(currentZoom * 100);
+      updateZoom();
+    }
+  }, { passive: false });
+
+  // Pan functionality for SVG (middle mouse button or shift+drag)
+  svgContainer.addEventListener('mousedown', (e) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle mouse or Shift+Left click
+      if (selectedElement) {
+        deselectElement();
+      }
+      e.preventDefault();
+      isSvgPanning = true;
+      svgPanStartX = e.clientX - svgPanX;
+      svgPanStartY = e.clientY - svgPanY;
+      svgContainer.style.cursor = 'grabbing';
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isSvgPanning && svgElement && svgElement.querySelectorAll('*').length > 0) {
+      svgPanX = e.clientX - svgPanStartX;
+      svgPanY = e.clientY - svgPanStartY;
+      updateZoom();
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isSvgPanning) {
+      isSvgPanning = false;
+      svgContainer.style.cursor = 'default';
+    }
+  });
+
+  // Keyboard shortcuts for SVG zoom
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      const newZoom = Math.min(5, currentZoom + 0.15);
+      currentZoom = newZoom;
+      zoomSlider.value = Math.round(currentZoom * 100);
+      updateZoom();
+    } else if (e.key === '-') {
+      e.preventDefault();
+      const newZoom = Math.max(0.1, currentZoom - 0.15);
+      currentZoom = newZoom;
+      zoomSlider.value = Math.round(currentZoom * 100);
+      updateZoom();
+    } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      resetView();
+    }
+  });
 
   // Action buttons
   undoBtn.addEventListener("click", undo);
@@ -587,7 +660,10 @@ function setColor(color) {
 
 // Update zoom
 function updateZoom() {
-  svgElement.style.transform = `scale(${currentZoom})`;
+  if (!svgElement) return;
+  svgElement.style.transform = `translate(${svgPanX}px, ${svgPanY}px) scale(${currentZoom})`;
+  svgElement.style.transformOrigin = 'center center';
+  svgElement.style.transition = 'transform 0.1s ease-out';
   zoomValue.textContent = `${Math.round(currentZoom * 100)}%`;
 }
 
@@ -596,23 +672,33 @@ function centerSvg() {
   if (!svgElement) return;
 
   const container = svgContainer;
-
-  // Reset any existing transform
-  svgElement.style.transform = "";
-  svgElement.style.margin = "auto";
+  svgPanX = 0;
+  svgPanY = 0;
+  currentZoom = 1;
+  zoomSlider.value = 100;
+  
+  // Reset transforms
+  svgElement.style.transform = 'translate(0, 0) scale(1)';
+  svgElement.style.transformOrigin = 'center center';
+  svgElement.style.margin = 'auto';
 
   // Center the SVG
-  container.style.display = "flex";
-  container.style.alignItems = "center";
-  container.style.justifyContent = "center";
+  container.style.display = 'flex';
+  container.style.alignItems = 'center';
+  container.style.justifyContent = 'center';
+  
+  updateZoom();
 }
 
 // Reset view (zoom and position)
 function resetView() {
+  if (!svgElement) return;
   currentZoom = 1;
+  svgPanX = 0;
+  svgPanY = 0;
   zoomSlider.value = 100;
-  updateZoom(false); // no animation when resetting
-  centerSvg();
+  svgElement.style.transform = 'translate(0, 0) scale(1)';
+  updateZoom();
 }
 
 // Toggle fullscreen
@@ -824,6 +910,10 @@ document
 
     lastSelectedFillColor = newColorNorm;
   });
+
+
+
+  
 
 
 
