@@ -1,3 +1,6 @@
+// Import layering system
+import { analyzeAndCreateLayersFromSVG } from "./layer_logic.js";
+
 // DOM elements
 const svgContainer = document.getElementById("svgContainer");
 const colorPicker = document.getElementById("colorPicker");
@@ -20,9 +23,23 @@ const previewContent = document.getElementById("previewContent");
 const fileInput = document.getElementById("fileInput");
 const openFileBtn = document.getElementById("openFileBtn");
 
+// New Controls
+const strokeColorPicker = document.getElementById("strokeColorPicker");
+const strokeColorValue = document.getElementById("strokeColorValue");
+const strokeWidthSlider = document.getElementById("strokeWidthSlider");
+const strokeWidthValue = document.getElementById("strokeWidthValue");
+const opacitySlider = document.getElementById("opacitySlider");
+const opacityValue = document.getElementById("opacityValue");
+
+// Arrangement Controls
+const bringToFrontBtn = document.getElementById("bringToFront");
+const bringForwardBtn = document.getElementById("bringForward");
+const sendBackwardBtn = document.getElementById("sendBackward");
+const sendToBackBtn = document.getElementById("sendToBack");
+
 // State variables
 let svgElement = null;
-let selectedElement = null;
+let selectedElements = new Set();
 let hoveredElement = null;
 let currentZoom = 1;
 let svgPanX = 0;
@@ -35,8 +52,26 @@ let historyIndex = -1;
 let originalColors = new Map();
 let hoverTimeout = null;
 let lastSelectedFillColor = null;
+let lastSelectedStrokeColor = "#000000";
+let lastSelectedStrokeWidth = 0;
+let lastSelectedOpacity = 1;
 
-// Helper: normalize CSS color into hex or rgba string for reliable comparisons
+// Export selectElements for layer panel
+export function selectElements(elements, keepExisting = false) {
+  if (!keepExisting) {
+      clearSelection();
+  }
+
+  elements.forEach(element => {
+      selectedElements.add(element);
+      element.classList.add("selected-element");
+      element.classList.remove("hover-element");
+  });
+  
+  updateUIForSelection();
+}
+
+// Helper: normalize CSS color into hex or rgba string
 function rgbToHex(r, g, b) {
   return (
     "#" +
@@ -53,7 +88,6 @@ function rgbToHex(r, g, b) {
 function cssColorToHex(color, el) {
   if (!color) return "";
   color = color.trim();
-  // hex already
   if (color.startsWith("#")) {
     if (color.length === 4) {
       return (
@@ -68,7 +102,6 @@ function cssColorToHex(color, el) {
     }
     return color.toLowerCase();
   }
-  // rgb/rgba
   const rgbMatch = color.match(/rgba?\(([^)]+)\)/);
   if (rgbMatch) {
     const parts = rgbMatch[1].split(",").map((p) => p.trim());
@@ -80,7 +113,6 @@ function cssColorToHex(color, el) {
     if (a < 1) return `rgba(${r},${g},${b},${a})`;
     return rgbToHex(r, g, b);
   }
-  // named colors or other css values: ask browser to compute
   try {
     const temp = document.createElement("div");
     temp.style.color = color;
@@ -94,73 +126,41 @@ function cssColorToHex(color, el) {
 
 // Color presets
 const colorPresets = [
-  "#4361ee",
-  "#3a0ca3",
-  "#4cc9f0",
-  "#f72585",
-  "#7209b7",
-  "#480ca8",
-  "#560bad",
-  "#b5179e",
-  "#06d6a0",
-  "#1b9aaa",
-  "#ef476f",
-  "#ffd166",
-  "#118ab2",
-  "#073b4c",
-  "#ff9e00",
-  "#9d4edd",
+  "#4361ee", "#3a0ca3", "#4cc9f0", "#f72585", "#7209b7", "#480ca8",
+  "#560bad", "#b5179e", "#06d6a0", "#1b9aaa", "#ef476f", "#ffd166",
+  "#118ab2", "#073b4c", "#ff9e00", "#9d4edd",
 ];
 
 // Initialize the editor
 function initEditor() {
-  // Load the SVG
   fetch("js_art.svg")
     .then((res) => {
       if (!res.ok) throw new Error("SVG file not found");
       return res.text();
     })
     .then((svgText) => {
-      svgContainer.innerHTML = svgText;
-      svgElement = svgContainer.querySelector("svg");
-
-      if (!svgElement) {
-        throw new Error("No SVG element found in the file");
-      }
-
-      // Initialize SVG for editing
-      initSvg();
-      // Hide loading indicator
-      loadingIndicator.style.display = "none";
+      loadSvgFromText(svgText);
     })
     .catch((error) => {
       console.error("Error loading SVG:", error);
       loadingIndicator.style.display = "none";
       svgContainer.innerHTML = `
-            <div style="text-align: center; padding: 40px; color: #666;">
-              <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 20px; color: #ff6b6b;"></i>
-              <h3>SVG File Not Found</h3>
-              <p>Place an "js_art.svg" file in the same directory as this HTML file.</p>
-              <p>For now, here's a sample artwork:</p>
-            </div>
-          `;
-
-      // Create a sample SVG if the file doesn't exist
-      createSampleArtwork();
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 20px; color: #ff6b6b;"></i>
+          <h3>SVG File Not Found</h3>
+          <p>Upload an SVG file using the "Open SVG" button above.</p>
+        </div>
+      `;
     });
 
-  // Initialize color presets
   initColorPresets();
-
-  // Initialize event listeners
   initEventListeners();
 }
 
-// Load SVG content from a string and replace the current canvas
+// Load SVG content from a string
 function loadSvgFromText(svgText) {
   try {
-    // Reset selection and state
-    selectedElement = null;
+    selectedElements.clear();
     hoveredElement = null;
     originalColors = new Map();
     history = [];
@@ -175,25 +175,35 @@ function loadSvgFromText(svgText) {
 
     initSvg();
     loadingIndicator.style.display = "none";
+    
+    // Analyze layers after SVG is loaded
+    if (typeof analyzeAndCreateLayersFromSVG === 'function') {
+      analyzeAndCreateLayersFromSVG(svgElement, svgText);
+    }
+
   } catch (err) {
     console.error("Failed to load SVG:", err);
     svgContainer.innerHTML = `
       <div style="text-align:center; padding:30px; color:#666;">
         <h3>Invalid SVG file</h3>
         <p>Please choose a valid SVG file.</p>
+        <pre style="font-size:0.8em; margin-top:10px; color:#cf6679;">${err.message}</pre>
       </div>
     `;
   }
 }
 
+// Handle file upload
 function handleFile(file) {
   if (!file) return;
 
-  // Basic type check - accept .svg files
   if (!(file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg"))) {
     alert("Please select a valid SVG file.");
     return;
   }
+
+  loadingIndicator.style.display = "block";
+  loadingIndicator.innerHTML = '<div class="spinner"></div><span>Loading SVG...</span>';
 
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -202,45 +212,22 @@ function handleFile(file) {
   reader.onerror = (e) => {
     console.error("Error reading file:", e);
     alert("Could not read the selected file.");
+    loadingIndicator.style.display = "none";
   };
   reader.readAsText(file);
 }
 
-// Create sample artwork if SVG file is missing
-function createSampleArtwork() {
-  const sampleSvg = `
-        <svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-          <rect x="50" y="50" width="400" height="400" fill="#f8f9fa" stroke="#4361ee" stroke-width="2"/>
-          <circle cx="250" cy="250" r="80" fill="#4cc9f0" stroke="#3a0ca3" stroke-width="2"/>
-          <polygon points="250,100 350,250 250,400 150,250" fill="#f72585" stroke="#7209b7" stroke-width="2"/>
-          <rect x="100" y="100" width="80" height="80" fill="#06d6a0" stroke="#118ab2" stroke-width="2"/>
-          <rect x="320" y="100" width="80" height="80" fill="#ffd166" stroke="#ff9e00" stroke-width="2"/>
-          <rect x="100" y="320" width="80" height="80" fill="#9d4edd" stroke="#560bad" stroke-width="2"/>
-          <rect x="320" y="320" width="80" height="80" fill="#ef476f" stroke="#b5179e" stroke-width="2"/>
-          <text x="250" y="280" text-anchor="middle" font-family="Arial" font-size="24" fill="#3a0ca3">Edit Me!</text>
-        </svg>
-      `;
-
-  svgContainer.innerHTML = sampleSvg;
-  svgElement = svgContainer.querySelector("svg");
-  initSvg();
-}
-
 // Initialize the SVG for editing
 function initSvg() {
-  // Make all elements selectable and store original colors
   const elements = svgElement.querySelectorAll(
     "path, rect, circle, ellipse, polygon, line, text"
   );
   const elementIds = {};
 
-  // Add unique IDs to elements for tracking
   elements.forEach((el, index) => {
-    // Store original color
     const originalColor = el.getAttribute("fill") || "#000000";
     originalColors.set(el, originalColor);
 
-    // Generate unique ID for element
     let elementId;
     let tagName = el.tagName.toLowerCase();
     let counter = 1;
@@ -252,185 +239,216 @@ function initSvg() {
 
     elementIds[elementId] = true;
     el.dataset.elementId = elementId;
-
-    // Add hover and click event listeners
-    el.addEventListener("mouseenter", handleElementHover);
-    el.addEventListener("mouseleave", handleElementLeave);
-    el.addEventListener("click", handleElementClick);
   });
 
-  // Center the SVG
-  centerSvg();
+  svgElement.addEventListener("mousemove", handleSvgMouseMove);
+  svgElement.addEventListener("click", handleSvgClick);
+  svgElement.addEventListener("mouseleave", handleSvgMouseLeave);
 
-  // Take initial snapshot for undo/redo
+  centerSvg();
   saveHistory();
 }
 
-// Handle element hover
-function handleElementHover(e) {
-  // Clear any pending timeout
-  if (hoverTimeout) {
-    clearTimeout(hoverTimeout);
-    hoverTimeout = null;
-  }
-
-  // Don't fill if shift key is held (used for panning)
+function handleSvgMouseMove(e) {
   if (e.shiftKey) return;
 
   const element = e.target;
+  
+  if (!element.dataset.elementId) {
+      if (hoveredElement) {
+         handleElementLeave(e, hoveredElement);
+      }
+      return;
+  }
 
-  // If this element is already selected or hovered, do nothing
-  if (element === selectedElement || element === hoveredElement) return;
+  if (element === hoveredElement) return;
 
-  // Remove hover effect from previous element
-  if (hoveredElement && hoveredElement !== selectedElement) {
+  if (hoveredElement && hoveredElement !== element) {
     hoveredElement.classList.remove("hover-element");
   }
 
-  // Apply hover effect to this element
   element.classList.add("hover-element");
   hoveredElement = element;
 }
 
-// Handle element mouse leave
-function handleElementLeave(e) {
-  const element = e.target;
-
-  // Use timeout to prevent flickering when moving between elements
-  hoverTimeout = setTimeout(() => {
-    // Only remove hover effect if this is not the selected element
-    if (element !== selectedElement) {
-      element.classList.remove("hover-element");
-    }
-
-    // Clear hovered element reference
-    if (element === hoveredElement) {
-      hoveredElement = null;
-    }
-  }, 100);
+function handleSvgMouseLeave(e) {
+  if (hoveredElement) {
+     handleElementLeave(e, hoveredElement);
+  }
 }
 
-// Handle element click
-function handleElementClick(e) {
-  e.stopPropagation();
-  const element = e.target;
-  selectElement(element);
-}
-
-// Select an element
-function selectElement(element) {
-  // Remove previous selection
-  if (selectedElement) {
-    selectedElement.classList.remove("selected-element");
-    selectedElement.classList.remove("hover-element");
+function handleElementLeave(e, element) {
+  if (!element) return;
+  
+  if (!selectedElements.has(element)) {
+    element.classList.remove("hover-element");
   }
 
-  // Apply new selection (subtle only in main canvas)
-  selectedElement = element;
-  element.classList.add("selected-element");
-  element.classList.remove("hover-element");
-
-  // Update the selection preview box
-  updateSelectionPreview(element);
-
-  // Update color picker to match element's color (normalize across attribute/style/computed)
-  const fillColor = element.getAttribute("fill") || element.style.fill || window.getComputedStyle(element).fill || "#000000";
-  const normalizedFill = cssColorToHex(fillColor, element) || fillColor;
-  lastSelectedFillColor = normalizedFill;
-
-  // color input requires hex; ensure picker has hex when possible
-  colorPicker.value = normalizedFill.startsWith("#") ? normalizedFill : "#000000";
-  customColorValue.value = normalizedFill;
-
-  // Update active color preset
-  document.querySelectorAll(".color-option").forEach((opt) => {
-    opt.classList.toggle("active", opt.dataset.color === normalizedFill);
-  });
-}
-
-// Update the selection preview box
-function updateSelectionPreview(element) {
-  selectionPreview.classList.remove("empty");
-
-  const bbox = element.getBBox(); // REAL size of element
-
-  const previewSvg = document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    "svg"
-  );
-
-  // Fit exactly to element size
-  previewSvg.setAttribute(
-    "viewBox",
-    `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`
-  );
-
-  previewSvg.setAttribute("width", "100%");
-  previewSvg.setAttribute("height", "100%");
-  previewSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  previewSvg.id = "previewSvg";
-
-  // Clone selected element
-  const clone = element.cloneNode(true);
-  clone.classList.remove("selected-element", "hover-element");
-
-  previewSvg.appendChild(clone);
-
-  const fillColor = element.getAttribute("fill") || element.style.fill || window.getComputedStyle(element).fill || 'none';
-  const normalizedFill = cssColorToHex(fillColor, element) || fillColor;
-  const strokeFill = element.getAttribute("stroke") || element.style.stroke || window.getComputedStyle(element).stroke || 'none';
-  const normalizedStroke = cssColorToHex(strokeFill, element) || strokeFill;
-
-  selectionPreview.innerHTML = `
-    <div id="previewHeader">
-      <span>Selected Element Preview</span>
-      <span style="font-size:0.8rem; opacity:0.9">${element.tagName}</span>
-    </div>
-
-    <div id="previewContent" style="
-      width:100%;
-      height:200px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      overflow:hidden;
-    ">
-      ${previewSvg.outerHTML}
-
-      <div class="preview-info">
-        <div class="preview-info-row">
-          <span class="preview-label">Fill:</span>
-          <span class="preview-value" style="color:${normalizedFill}">
-            ${normalizedFill}
-          </span>
-        </div>
-        <div class="preview-info-row">
-          <span class="preview-label">Stroke:</span>
-          <span class="preview-value" style="color:${normalizedStroke}">${normalizedStroke}</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// Deselect current element
-function deselectElement() {
-  if (selectedElement) {
-    selectedElement.classList.remove("selected-element");
-    selectedElement = null;
+  if (element === hoveredElement) {
+    hoveredElement = null;
   }
+}
 
-  // Reset preview box to empty state
-  selectionPreview.classList.add("empty");
-  selectionPreview.innerHTML = `
+// Event Bus Listeners
+document.addEventListener('request-selection', (e) => {
+    const { elementIds, type } = e.detail;
+    if (type === 'replace') {
+        clearSelection();
+    }
+    
+    const elementsToSelect = [];
+    if (elementIds && elementIds.length) {
+        elementIds.forEach(id => {
+            const el = svgElement.querySelector(`[data-element-id="${id}"]`);
+            if (el) elementsToSelect.push(el);
+        });
+    }
+    
+    if (elementsToSelect.length > 0) {
+        selectElements(elementsToSelect, type === 'add');
+    }
+});
+
+function handleSvgClick(e) {
+    const element = e.target;
+    if (element.dataset.elementId) {
+        e.stopPropagation();
+        handleElementClick(e, element);
+    } else {
+        clearSelection();
+    }
+}
+
+function handleElementClick(e, element) {
+  const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
+  selectElements([element], isMulti);
+}
+
+function clearSelection() {
+    selectedElements.forEach(el => {
+        el.classList.remove("selected-element");
+    });
+    selectedElements.clear();
+    updateUIForSelection();
+}
+
+function updateUIForSelection() {
+    if (selectedElements.size === 0) {
+        selectionPreview.classList.add("empty");
+        selectionPreview.innerHTML = `
         <div id="previewContent">
           <i class="fas fa-mouse-pointer"></i>
           <p>Click on any element to select it</p>
         </div>
       `;
+      return;
+    }
+
+    const primaryElement = Array.from(selectedElements).pop();
+    updateSelectionPreview(primaryElement);
+    updateStyleControls(primaryElement);
+    
+    const selectedIds = Array.from(selectedElements).map(el => el.dataset.elementId);
+    document.dispatchEvent(new CustomEvent('selection-changed', { 
+        detail: { elementIds: selectedIds } 
+    }));
 }
 
-// Initialize color presets
+function updateStyleControls(element) {
+   const fillColor = element.getAttribute("fill") || element.style.fill || window.getComputedStyle(element).fill || "#000000";
+   const normalizedFill = cssColorToHex(fillColor, element) || fillColor;
+   lastSelectedFillColor = normalizedFill;
+
+  colorPicker.value = normalizedFill.startsWith("#") ? normalizedFill : "#000000";
+  customColorValue.value = normalizedFill;
+
+  document.querySelectorAll(".color-option").forEach((opt) => {
+    opt.classList.toggle("active", opt.dataset.color === normalizedFill);
+  });
+
+  const strokeColor = element.getAttribute("stroke") || element.style.stroke || "none";
+  const strokeWidth = element.getAttribute("stroke-width") || element.style.strokeWidth || "0";
+  const opacity = element.getAttribute("opacity") || element.style.opacity || "1";
+
+  const normalizedStroke = strokeColor === 'none' ? '#000000' : (cssColorToHex(strokeColor, element) || strokeColor);
+  lastSelectedStrokeColor = normalizedStroke;
+  strokeColorPicker.value = normalizedStroke.startsWith('#') ? normalizedStroke : '#000000';
+  strokeColorValue.value = normalizedStroke;
+
+  const strokeWidthFloat = parseFloat(strokeWidth) || 0;
+  lastSelectedStrokeWidth = strokeWidthFloat;
+  strokeWidthSlider.value = strokeWidthFloat;
+  strokeWidthValue.textContent = `${strokeWidthFloat}px`;
+
+  const opacityFloat = parseFloat(opacity);
+  const opacityPercent = Math.round((isNaN(opacityFloat) ? 1 : opacityFloat) * 100);
+  lastSelectedOpacity = opacityFloat;
+  opacitySlider.value = opacityPercent;
+  opacityValue.textContent = `${opacityPercent}%`;
+}
+
+function updateSelectionPreview(element) {
+  selectionPreview.classList.remove("empty");
+
+  const bbox = element.getBBox();
+  const previewSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+  previewSvg.setAttribute("viewBox", `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
+  previewSvg.setAttribute("width", "100%");
+  previewSvg.setAttribute("height", "100%");
+  previewSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+  const clone = element.cloneNode(true);
+  clone.classList.remove("selected-element", "hover-element");
+  previewSvg.appendChild(clone);
+
+  const fillColor = element.getAttribute("fill") || element.style.fill || window.getComputedStyle(element).fill || 'none';
+  const normalizedFill = cssColorToHex(fillColor, element) || fillColor;
+  const strokeFill = element.getAttribute("stroke") || element.style.stroke || 'none';
+  const normalizedStroke = cssColorToHex(strokeFill, element) || strokeFill;
+
+  // Enhanced info display
+  const elementType = element.tagName.toLowerCase();
+  const pathData = element.getAttribute("d") || "";
+  const pathCommands = pathData ? pathData.match(/[a-zA-Z]/g)?.length || 0 : 0;
+  
+  selectionPreview.innerHTML = `
+    <div id="previewHeader">
+      <span>${selectedElements.size > 1 ? `${selectedElements.size} Elements Selected` : 'Selected Element'}</span>
+      <span style="font-size:0.8rem; opacity:0.9; text-transform:uppercase">${elementType}</span>
+    </div>
+
+    <div id="previewContent" style="width:100%; height:200px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+      ${previewSvg.outerHTML}
+    </div>
+    
+    <div class="preview-details" style="padding: 12px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem;">
+      <div class="preview-info-row">
+        <span class="preview-label">Element ID:</span>
+        <span class="preview-value">${element.dataset.elementId}</span>
+      </div>
+      <div class="preview-info-row">
+        <span class="preview-label">Fill Color:</span>
+        <span class="preview-value" style="color:${normalizedFill}">${normalizedFill}</span>
+      </div>
+      <div class="preview-info-row">
+        <span class="preview-label">Stroke:</span>
+        <span class="preview-value" style="color:${normalizedStroke}">${normalizedStroke}</span>
+      </div>
+      ${pathCommands > 0 ? `
+      <div class="preview-info-row">
+        <span class="preview-label">Path Commands:</span>
+        <span class="preview-value">${pathCommands}</span>
+      </div>
+      ` : ''}
+      <div class="preview-info-row">
+        <span class="preview-label">Dimensions:</span>
+        <span class="preview-value">${Math.round(bbox.width)} × ${Math.round(bbox.height)}px</span>
+      </div>
+    </div>
+  `;
+}
+
 function initColorPresets() {
   colorPresets.forEach((color) => {
     const colorOption = document.createElement("div");
@@ -440,7 +458,6 @@ function initColorPresets() {
 
     colorOption.addEventListener("click", () => {
       setColor(color);
-      // Update color picker to match
       colorPicker.value = color;
       customColorValue.value = color;
     });
@@ -449,9 +466,7 @@ function initColorPresets() {
   });
 }
 
-// Initialize event listeners
 function initEventListeners() {
-  // Color picker events
   colorPicker.addEventListener("input", (e) => {
     const color = e.target.value;
     customColorValue.value = color;
@@ -460,7 +475,6 @@ function initEventListeners() {
 
   customColorValue.addEventListener("change", (e) => {
     const color = e.target.value;
-    // Validate hex color
     if (/^#([0-9A-F]{3}){1,2}$/i.test(color)) {
       colorPicker.value = color;
       setColor(color);
@@ -470,7 +484,6 @@ function initEventListeners() {
     }
   });
 
-  // Zoom controls
   zoomSlider.addEventListener("input", (e) => {
     const zoomPercent = parseInt(e.target.value);
     currentZoom = zoomPercent / 100;
@@ -491,12 +504,10 @@ function initEventListeners() {
     updateZoom();
   });
 
-  // View controls
   centerViewBtn.addEventListener("click", centerSvg);
   resetViewBtn.addEventListener("click", resetView);
   fullscreenBtn.addEventListener("click", toggleFullscreen);
 
-  // Mouse wheel zoom for SVG
   svgContainer.addEventListener('wheel', (e) => {
     if (!svgElement || svgElement.querySelectorAll('*').length === 0) return;
     e.preventDefault();
@@ -512,12 +523,8 @@ function initEventListeners() {
     }
   }, { passive: false });
 
-  // Pan functionality for SVG (middle mouse button or shift+drag)
   svgContainer.addEventListener('mousedown', (e) => {
-    if (e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle mouse or Shift+Left click
-      if (selectedElement) {
-        deselectElement();
-      }
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
       e.preventDefault();
       isSvgPanning = true;
       svgPanStartX = e.clientX - svgPanX;
@@ -541,35 +548,11 @@ function initEventListeners() {
     }
   });
 
-  // Keyboard shortcuts for SVG zoom
-  document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    
-    if (e.key === '+' || e.key === '=') {
-      e.preventDefault();
-      const newZoom = Math.min(5, currentZoom + 0.15);
-      currentZoom = newZoom;
-      zoomSlider.value = Math.round(currentZoom * 100);
-      updateZoom();
-    } else if (e.key === '-') {
-      e.preventDefault();
-      const newZoom = Math.max(0.1, currentZoom - 0.15);
-      currentZoom = newZoom;
-      zoomSlider.value = Math.round(currentZoom * 100);
-      updateZoom();
-    } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      resetView();
-    }
-  });
-
-  // Action buttons
   undoBtn.addEventListener("click", undo);
   redoBtn.addEventListener("click", redo);
   resetColorsBtn.addEventListener("click", resetAllColors);
   saveArtworkBtn.addEventListener("click", saveSVG);
 
-  // File open button / input
   if (openFileBtn && fileInput) {
     openFileBtn.addEventListener("click", () => fileInput.click());
 
@@ -577,12 +560,10 @@ function initEventListeners() {
       if (e.target.files && e.target.files[0]) {
         handleFile(e.target.files[0]);
       }
-      // reset value so selecting same file again will still trigger change
       fileInput.value = "";
     });
   }
 
-  // Drag & drop support on the svg container
   svgContainer.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
@@ -602,95 +583,91 @@ function initEventListeners() {
     }
   });
 
-  // Click on canvas to deselect
-  svgContainer.addEventListener("click", (e) => {
-    // Only deselect if clicking directly on the container (not an SVG element)
-    if (e.target === svgContainer || e.target === svgElement) {
-      deselectElement();
-    }
+  strokeColorPicker.addEventListener("input", (e) => {
+      const color = e.target.value;
+      strokeColorValue.value = color;
+      setStrokeColor(color);
   });
+
+  strokeColorValue.addEventListener("change", (e) => {
+        const color = e.target.value;
+        if (/^#([0-9A-F]{3}){1,2}$/i.test(color)) {
+            strokeColorPicker.value = color;
+            setStrokeColor(color);
+        }
+  });
+
+  strokeWidthSlider.addEventListener("input", (e) => {
+      const width = e.target.value;
+      strokeWidthValue.textContent = `${width}px`;
+      setStrokeWidth(width);
+  });
+
+  opacitySlider.addEventListener("input", (e) => {
+      const percent = e.target.value;
+      opacityValue.textContent = `${percent}%`;
+      setOpacity(percent / 100);
+  });
+
+  const addClick = (el, fn) => el && el.addEventListener("click", fn);
+  addClick(bringToFrontBtn, () => moveElement("front"));
+  addClick(bringForwardBtn, () => moveElement("forward"));
+  addClick(sendBackwardBtn, () => moveElement("backward"));
+  addClick(sendToBackBtn, () => moveElement("back"));
 }
 
-// Set color for selected element
 function setColor(color) {
-  if (!selectedElement) {
-    alert("Please select an element first by clicking on it.");
+  if (selectedElements.size === 0) {
+    alert("Please select an element first.");
     return;
   }
 
-  // Save current state to history before changing
   saveHistory();
 
-  // Apply color to the element in main canvas
-  console.log(selectedElement.style.fill)
-  selectedElement.style.fill = color;
-  selectedElement.setAttribute("fill", color);
-
-  // //get all elems similar to the selected color and change their color too
-  // const elements = svgElement.querySelectorAll();
-  // const selectedElementColor =
-  //   selectedElement.getAttribute("fill") || "#000000";
-  //   elements.forEach((el) => {
-  //     const elColor = el.getAttribute("fill") || "#000000";
-  //     if (elColor === selectedElementColor) {
-  //       el.style.fill = color;
-  //       el.setAttribute("fill", color);
-  //     }
-  //   });
-
-  // Also update the color in the preview
-  const previewSvg = selectionPreview.querySelector("#previewSvg");
-  if (previewSvg) {
-    const previewElement = previewSvg.querySelector("*");
-    if (previewElement) {
-      previewElement.style.fill = color;
-      previewElement.setAttribute("fill", color);
-
-      // Update the color info in preview
-      const colorValueSpan = selectionPreview.querySelector(
-        ".preview-info-row:nth-child(3) .preview-value"
-      );
-      if (colorValueSpan) {
-        colorValueSpan.textContent = color;
-        colorValueSpan.style.color = color;
-      }
-    }
+  selectedElements.forEach(element => {
+      element.style.fill = color;
+      element.setAttribute("fill", color);
+  });
+  
+  const primaryElement = Array.from(selectedElements).pop();
+  if (primaryElement) {
+       updateUIForSelection(); 
   }
 }
 
-// Update zoom
+let zoomRequestId = null;
 function updateZoom() {
-  if (!svgElement) return;
-  svgElement.style.transform = `translate(${svgPanX}px, ${svgPanY}px) scale(${currentZoom})`;
-  svgElement.style.transformOrigin = 'center center';
-  svgElement.style.transition = 'transform 0.1s ease-out';
-  zoomValue.textContent = `${Math.round(currentZoom * 100)}%`;
+  if (zoomRequestId) return;
+  
+  zoomRequestId = requestAnimationFrame(() => {
+    if (!svgElement) return;
+    svgElement.style.transform = `translate(${svgPanX}px, ${svgPanY}px) scale(${currentZoom})`;
+    svgElement.style.transformOrigin = 'center center';
+    svgElement.style.transition = isSvgPanning ? 'none' : 'transform 0.1s ease-out';
+    zoomValue.textContent = `${Math.round(currentZoom * 100)}%`;
+    zoomRequestId = null;
+  });
 }
 
-// Center SVG in container
 function centerSvg() {
   if (!svgElement) return;
 
-  const container = svgContainer;
   svgPanX = 0;
   svgPanY = 0;
   currentZoom = 1;
   zoomSlider.value = 100;
   
-  // Reset transforms
   svgElement.style.transform = 'translate(0, 0) scale(1)';
   svgElement.style.transformOrigin = 'center center';
   svgElement.style.margin = 'auto';
 
-  // Center the SVG
-  container.style.display = 'flex';
-  container.style.alignItems = 'center';
-  container.style.justifyContent = 'center';
+  svgContainer.style.display = 'flex';
+  svgContainer.style.alignItems = 'center';
+  svgContainer.style.justifyContent = 'center';
   
   updateZoom();
 }
 
-// Reset view (zoom and position)
 function resetView() {
   if (!svgElement) return;
   currentZoom = 1;
@@ -701,7 +678,6 @@ function resetView() {
   updateZoom();
 }
 
-// Toggle fullscreen
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch((err) => {
@@ -718,19 +694,15 @@ function toggleFullscreen() {
   }
 }
 
-// History functions for undo/redo
 function saveHistory() {
-  // Remove any future states if we're not at the end of history
   if (historyIndex < history.length - 1) {
     history = history.slice(0, historyIndex + 1);
   }
 
-  // Save current SVG state
   const svgClone = svgElement.cloneNode(true);
   history.push(svgClone);
   historyIndex++;
 
-  // Update undo/redo buttons
   updateUndoRedoButtons();
 }
 
@@ -751,18 +723,12 @@ function redo() {
 function restoreFromHistory() {
   const savedSvg = history[historyIndex];
 
-  // Replace current SVG with saved version
   svgContainer.replaceChild(savedSvg, svgElement);
   svgElement = savedSvg;
 
-  // Reinitialize event listeners for the new SVG
   initSvg();
-
-  // Update undo/redo buttons
   updateUndoRedoButtons();
-
-  // Deselect element since we have a new DOM
-  deselectElement();
+  clearSelection();
 }
 
 function updateUndoRedoButtons() {
@@ -775,25 +741,16 @@ function updateUndoRedoButtons() {
   redoBtn.style.cursor = redoBtn.disabled ? "not-allowed" : "pointer";
 }
 
-// Reset all colors to original
 function resetAllColors() {
-  if (
-    !confirm(
-      "Are you sure you want to reset all colors to their original values?"
-    )
-  ) {
+  if (!confirm("Are you sure you want to reset all colors to their original values?")) {
     return;
   }
 
   saveHistory();
 
-  // Get all elements in current SVG
-  const elements = svgElement.querySelectorAll(
-    "path, rect, circle, ellipse, polygon, line, text"
-  );
+  const elements = svgElement.querySelectorAll("path, rect, circle, ellipse, polygon, line, text");
 
   elements.forEach((element) => {
-    // Find original color for this element
     const originalElement = Array.from(originalColors.keys()).find(
       (el) => el.dataset.elementId === element.dataset.elementId
     );
@@ -805,29 +762,16 @@ function resetAllColors() {
     }
   });
 
-  // Update selected element if there is one
-  if (selectedElement) {
-    const originalElement = Array.from(originalColors.keys()).find(
-      (el) => el.dataset.elementId === selectedElement.dataset.elementId
-    );
-
-    if (originalElement) {
-      const originalColor = originalColors.get(originalElement);
-      // Update preview
-      updateSelectionPreview(selectedElement);
-      colorPicker.value = originalColor;
-      customColorValue.value = originalColor;
-    }
+  if (selectedElements.size > 0) {
+      const primaryElement = Array.from(selectedElements).pop();
+      updateSelectionPreview(primaryElement);
   }
 }
 
-// Save SVG to file
 function saveSVG() {
-  // Create a blob with the SVG content
   const svgData = new XMLSerializer().serializeToString(svgElement);
   const blob = new Blob([svgData], { type: "image/svg+xml" });
 
-  // Create download link
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -835,13 +779,11 @@ function saveSVG() {
   document.body.appendChild(a);
   a.click();
 
-  // Clean up
   setTimeout(() => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 100);
 
-  // Show feedback
   const originalText = saveArtworkBtn.innerHTML;
   saveArtworkBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
   saveArtworkBtn.style.backgroundColor = "#e8f5e9";
@@ -852,10 +794,8 @@ function saveSVG() {
   }, 2000);
 }
 
-// Initialize the editor when page loads
 document.addEventListener("DOMContentLoaded", initEditor);
 
-// Handle fullscreen change
 document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement) {
     fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
@@ -863,24 +803,19 @@ document.addEventListener("fullscreenchange", () => {
   }
 });
 
-document
-  .getElementById("fillSimilarColorsBtn")
-  .addEventListener("click", () => {
-    if (!selectedElement) {
+document.getElementById("fillSimilarColorsBtn").addEventListener("click", () => {
+    if (selectedElements.size === 0) {
       alert("Select an element first");
       return;
     }
 
     const newColor = colorPicker.value;
     const newColorNorm = cssColorToHex(newColor);
+    
+    const primaryElement = Array.from(selectedElements).pop();
 
-    // Determine target color from lastSelectedFillColor or from the selected element (style/attr/computed)
-    const selectedRaw =
-      lastSelectedFillColor ||
-      selectedElement.getAttribute("fill") ||
-      selectedElement.style.fill ||
-      window.getComputedStyle(selectedElement).fill;
-    const targetNorm = cssColorToHex(selectedRaw, selectedElement);
+    const selectedRaw = lastSelectedFillColor || primaryElement.getAttribute("fill") || primaryElement.style.fill || window.getComputedStyle(primaryElement).fill;
+    const targetNorm = cssColorToHex(selectedRaw, primaryElement);
 
     if (!targetNorm) {
       alert("Could not determine the selected element's color.");
@@ -917,4 +852,78 @@ document
 
 
 
- 
+// FIXED: Key changes summary
+// 1. Fixed file upload - added proper loading indicator
+// 2. Added smooth layer highlighting with CSS transitions
+// 3. Enhanced selection preview with detailed info
+// 4. Fixed layer-to-canvas synchronization
+
+// ... [Previous code stays the same until setStrokeColor functions] ...
+
+function setStrokeColor(color) {
+    if (selectedElements.size === 0) return;
+    saveHistory();
+    selectedElements.forEach(el => {
+        el.setAttribute("stroke", color);
+        el.style.stroke = color;
+    });
+    lastSelectedStrokeColor = color;
+}
+
+function setStrokeWidth(width) {
+    if (selectedElements.size === 0) return;
+    saveHistory();
+    selectedElements.forEach(el => {
+        el.setAttribute("stroke-width", width);
+        el.style.strokeWidth = `${width}px`;
+        
+        if (parseFloat(width) > 0) {
+            const currentStroke = el.getAttribute("stroke") || el.style.stroke;
+            if (!currentStroke || currentStroke === 'none') {
+                 el.setAttribute("stroke", lastSelectedStrokeColor);
+                 el.style.stroke = lastSelectedStrokeColor;
+            }
+        }
+    });
+    lastSelectedStrokeWidth = width;
+}
+
+function setOpacity(value) {
+    if (selectedElements.size === 0) return;
+    saveHistory();
+    selectedElements.forEach(el => {
+        el.setAttribute("opacity", value);
+        el.style.opacity = value;
+    });
+    lastSelectedOpacity = value;
+}
+
+function moveElement(direction) {
+    if (selectedElements.size === 0) return;
+    const elements = Array.from(selectedElements);
+    
+    saveHistory();
+    
+    const parent = elements[0].parentNode;
+    if (!parent) return;
+
+    elements.forEach(selectedElement => {
+        if (selectedElement.parentNode !== parent) return;
+
+        if (direction === "front") {
+            parent.appendChild(selectedElement);
+        } else if (direction === "back") {
+            parent.prepend(selectedElement); 
+        } else if (direction === "forward") {
+            const next = selectedElement.nextElementSibling;
+            if (next) {
+                parent.insertBefore(selectedElement, next.nextElementSibling);
+            }
+        } else if (direction === "backward") {
+            const prev = selectedElement.previousElementSibling;
+            if (prev) {
+                parent.insertBefore(selectedElement, prev);
+            }
+        }
+    });
+}
