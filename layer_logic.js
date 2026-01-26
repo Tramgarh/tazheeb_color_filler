@@ -1,4 +1,4 @@
-import { loadSvg } from "./layering_controller.js";
+import { loadSvg } from "layering_controller.js";
 
 let layers = [];
 let draggedItem = null;
