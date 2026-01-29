@@ -12,7 +12,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.263.1/font/lucide.css">
     <link rel="stylesheet" href="raster_style.css" />
     <link rel="stylesheet" href="svg_style.css" />
-    <link rel="stylesheet" href="layer_highlight.css">
     <!-- <link rel="stylesheet" href="../css/layer_style.css" /> -->
     <style>
         /* Quick inline styles for lucide icons */
@@ -264,50 +263,6 @@
         </div>
       </div>
 
-      <!-- New Styling Section -->
-      <div class="panel-section">
-        <h3><i class="fas fa-paint-roller"></i> Style & Stroke</h3>
-        
-        <!-- Stroke Control -->
-         <div class="style-control-row">
-            <label>Stroke Color</label>
-            <div class="color-picker-container compact">
-                <input type="color" id="strokeColorPicker" value="#000000" />
-                <input type="text" id="strokeColorValue" value="#000000" maxlength="7" />
-            </div>
-         </div>
-
-         <div class="style-control-row">
-            <label>Stroke Width: <span id="strokeWidthValue">0px</span></label>
-            <input type="range" id="strokeWidthSlider" min="0" max="20" value="0" step="0.5" />
-         </div>
-
-         <!-- Opacity Control -->
-         <div class="style-control-row">
-            <label>Opacity: <span id="opacityValue">100%</span></label>
-            <input type="range" id="opacitySlider" min="0" max="100" value="100" step="1" />
-         </div>
-      </div>
-
-      <!-- New Arrangement Section -->
-      <div class="panel-section">
-        <h3><i class="fas fa-layer-group"></i> Arrangement</h3>
-        <div class="arrange-grid">
-            <button class="action-btn small" id="bringToFront" title="Bring to Front">
-                <i class="fas fa-arrow-up"></i>
-            </button>
-             <button class="action-btn small" id="bringForward" title="Bring Forward">
-                <i class="fas fa-angle-up"></i>
-            </button>
-             <button class="action-btn small" id="sendBackward" title="Send Backward">
-                <i class="fas fa-angle-down"></i>
-            </button>
-            <button class="action-btn small" id="sendToBack" title="Send to Back">
-                <i class="fas fa-arrow-down"></i>
-            </button>
-        </div>
-      </div>
-
       <div class="panel-section">
         <h3><i class="fas fa-search"></i> Zoom Controls</h3>
         <div class="zoom-controls">
@@ -357,13 +312,11 @@
     </div>
   </div>
 </div>
-    <!-- Hidden File Input for Upload -->
-    <input type="file" id="fileInput" accept=".svg" style="display: none;" />
-    
-    <!-- Scripts -->
-    <script src="layering_controller.js" type="module"></script>
+        <input type="file" id="fileInput" accept=".svg,image/svg+xml" style="display:none" />
+    <input type="file" id="rasterInput" accept="image/png,image/jpeg" style="display: none" />
+
     <script type="module" src="layer_logic.js"></script>
     <script type="module" src="svg_logic.js"></script>
-    <script src="raster_logic.js"></script>
+    <script type="module" src="raster_logic.js"></script>
   </body>
 </html>
