@@ -1,5 +1,6 @@
 // Browser-compatible SVG analyzer
 // No external dependencies needed - uses native browser APIs
+// layering_controller.js
 
 export function loadSvg(svgText) {
     try {
