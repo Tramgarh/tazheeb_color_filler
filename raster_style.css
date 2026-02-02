@@ -1,419 +1,48 @@
-:root {
-        --primary: #4361ee;
-        --secondary: #3a0ca3;
-        --light: #f8f9fa;
-        --dark: #212529;
-        --panel: #ffffff;
-        --border: #dee2e6;
-        --hover: #e9ecef;
-        --success: #4cc9f0;
-        --danger: #f72585;
-        --shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-        --radius: 12px;
-        --transition: all 0.2s ease;
+/* Raster Coloring Specific Styles */
 
-        /* Compatibility aliases for svg_style.css */
-        --primary-color: var(--primary);
-        --secondary-color: var(--secondary);
-        --light-color: var(--light);
-        --dark-color: var(--dark);
-        --panel-color: var(--panel);
-        --border-color: var(--border);
-        --hover-color: var(--hover);
-        --success-color: var(--success);
-        --danger-color: var(--danger);
-      }
+#rasterMainWrapper {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: 
+    linear-gradient(45deg, #f0f0f0 25%, transparent 25%), 
+    linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #f0f0f0 75%), 
+    linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
 
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: system-ui, -apple-system, sans-serif;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        min-height: 100vh;
-        color: var(--dark);
-      }
+#mainCanvas {
+  max-width: 90%;
+  max-height: 90%;
+  background-color: white;
+  box-shadow: var(--shadow-lg);
+  cursor: crosshair;
+  image-rendering: pixelated; /* Sharp pixels when zoomed */
+}
 
-      .container {
-        max-width: 1600px;
-        margin: 0 auto;
-        padding: 20px;
-      }
+/* Control tweaks for Raster Sidebar */
+#raster-properties input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+}
 
-      header {
-        text-align: center;
-        padding: 20px 0 30px;
-        color: var(--secondary);
-      }
+#raster-properties select {
+  background-color: white;
+  color: var(--text-main);
+  outline: none;
+}
 
-      header h1 {
-        font-size: 2.4rem;
-        margin-bottom: 8px;
-      }
+#raster-properties select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
 
-      .tabs {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 24px;
-        border-bottom: 2px solid var(--border);
-      }
-
-      .tab-btn {
-        padding: 12px 24px;
-        font-size: 1.1rem;
-        background: transparent;
-        border: none;
-        border-bottom: 3px solid transparent;
-        color: #666;
-        cursor: pointer;
-        transition: var(--transition);
-      }
-
-      .tab-btn.active {
-        color: var(--primary);
-        border-bottom-color: var(--primary);
-        font-weight: 600;
-      }
-
-      .tab-content {
-        display: none;
-      }
-      .tab-content.active {
-        display: block;
-      }
-
-      .controls {
-        background: white;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        padding: 20px;
-        margin-bottom: 24px;
-      }
-
-      .controls h3 {
-        margin: 0 0 16px;
-        color: var(--secondary);
-      }
-
-      .control-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 16px;
-      }
-
-      .zoom-control {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin: 12px 0;
-      }
-
-      .zoom-btn {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: white;
-        border: 1px solid var(--border);
-        cursor: pointer;
-        font-size: 1.1rem;
-        transition: var(--transition);
-      }
-
-      .zoom-btn:hover {
-        background: var(--hover);
-      }
-
-      .zoom-value {
-        min-width: 60px;
-        text-align: center;
-        font-weight: 600;
-        color: var(--primary);
-      }
-
-      .canvas-layout {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 24px;
-      }
-
-      /* New layout for raster editor with full-width canvas and side preview */
-      .canvas-layout-raster {
-        display: grid;
-        grid-template-columns: 1fr 280px;
-        gap: 24px;
-        height: calc(100vh - 400px);
-        min-height: 600px;
-      }
-
-      .raster-sidebar {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-
-      .original-panel-small {
-        background: white;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-      }
-
-      .preview-thumbnail-container {
-        flex: 1;
-        padding: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #fafafa;
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-      }
-
-      .preview-thumbnail {
-        max-width: 100%;
-        max-height: 100%;
-        width: 100%;
-        height: auto;
-        border-radius: 6px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease;
-      }
-
-      .preview-thumbnail-container:hover .preview-thumbnail {
-        transform: scale(1.05);
-      }
-
-      .preview-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(67, 97, 238, 0.8);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        gap: 8px;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-        font-size: 0.9rem;
-      }
-
-      .preview-thumbnail-container:hover .preview-overlay {
-        opacity: 1;
-      }
-
-      .preview-overlay i {
-        font-size: 1.5rem;
-      }
-
-      .canvas-panel {
-        background: white;
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        overflow: hidden;
-      }
-
-      .canvas-header {
-        background: var(--primary);
-        color: white;
-        padding: 14px 20px;
-        font-weight: 600;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .canvas-body {
-        padding: 20px;
-        min-height: 500px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: #fafafa;
-        overflow: auto;
-        position: relative;
-        user-select: none;
-      }
-
-      .canvas-body-inner {
-        position: relative;
-        transform-origin: top left;
-        transition: transform 0.1s ease-out;
-        cursor: pointer
-      }
-
-      .canvas-body-inner:active {
-        cursor: grabbing;
-      }
-
-      canvas,
-      svg {
-        max-width: 100%;
-        border-radius: 8px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-        display: block;
-      }
-
-      button {
-        padding: 10px 16px;
-        border-radius: 8px;
-        border: none;
-        cursor: pointer;
-        transition: var(--transition);
-        font-weight: 500;
-      }
-
-      button.primary {
-        background: var(--primary);
-        color: white;
-      }
-      button.success {
-        background: var(--success);
-        color: white;
-      }
-      button.danger {
-        background: var(--danger);
-        color: white;
-      }
-      button.secondary {
-        background: var(--hover);
-        color: var(--dark);
-      }
-
-      button:hover {
-        opacity: 0.92;
-        transform: translateY(-1px);
-      }
-
-      @media (max-width: 1100px) {
-        .canvas-layout {
-          grid-template-columns: 1fr;
-        }
-        .original-panel {
-          order: 2;
-        }
-        .main-edit {
-          order: 1;
-        }
-      }
-
-      /* Original preview panel tweaks */
-      .original-panel .canvas-body {
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        flex-direction:column;
-        padding: 16px;
-      }
-      .original-panel img {
-        max-width: 240px;
-        max-height: 240px;
-        width: 100%;
-        height: auto;
-        border-radius: 8px;
-      }
-
-      /* Modal Preview Styles */
-      .modal-preview {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 20px;
-      }
-
-      .modal-preview-content {
-        background: white;
-        border-radius: var(--radius);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        display: flex;
-        flex-direction: column;
-        max-width: 90vw;
-        max-height: 90vh;
-        overflow: hidden;
-      }
-
-      .modal-preview-header {
-        background: var(--primary);
-        color: white;
-        padding: 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-shrink: 0;
-      }
-
-      .modal-preview-header h3 {
-        margin: 0;
-        font-size: 1.3rem;
-      }
-
-      .modal-close-btn {
-        background: rgba(255, 255, 255, 0.2);
-        border: none;
-        color: white;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition);
-        padding: 0;
-      }
-
-      .modal-close-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
-      }
-
-      .modal-preview-body {
-        flex: 1;
-        overflow: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        background: #f8f9fa;
-      }
-
-      .modal-preview-body img {
-        max-width: 100%;
-        max-height: 100%;
-        border-radius: 8px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-      }
-
-      @media (max-width: 1100px) {
-        .canvas-layout-raster {
-          grid-template-columns: 1fr;
-          height: auto;
-        }
-
-        .raster-sidebar {
-          grid-column: 1 / -1;
-          flex-direction: row;
-          height: auto;
-        }
-
-        .original-panel-small {
-          height: auto;
-          max-height: 250px;
-        }
-      }
+/* Utility to hide elements */
+.hidden {
+  display: none !important;
+}
