@@ -4,7 +4,7 @@
  * handling visibility, locking, and synchronization with the SVG canvas.
  */
 
-import { loadSvg } from "../utils/layering_controller.js";
+import { loadSvg } from "./layering_controller.js";
 
 // --- State Management ---
 
